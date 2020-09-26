@@ -22,15 +22,18 @@ namespace WC3Binder
         System.Threading.Timer timer;
         TimerCallback tm;
         bool selfCast = false;
+        static string[] name;
         public Form1()
         {
             InitializeComponent();
         }
-
+        [System.Runtime.InteropServices.DllImportAttribute("user32.dll", EntryPoint = "BlockInput")]
+        [return: System.Runtime.InteropServices.MarshalAsAttribute(System.Runtime.InteropServices.UnmanagedType.Bool)]
+        public static extern bool BlockInput([System.Runtime.InteropServices.MarshalAsAttribute(System.Runtime.InteropServices.UnmanagedType.Bool)] bool fBlockIt);
         private void Form1_Load(object sender, EventArgs e)
         {
             tm = new TimerCallback(st);
-            string[] name = new string[2];
+            name = new string[4];
             binder = new Data();
             for (int i = 0; i < 18; i++)
             {
@@ -43,6 +46,8 @@ namespace WC3Binder
             {
                 richTextBox2.Text = name[0];
                 richTextBox3.Text = name[1];
+                button24.Tag = name[2];
+                button25.Tag = name[3];
             }
             try
             {
@@ -103,16 +108,22 @@ namespace WC3Binder
                 }
                 prevButton = true;
                 textp = text;
-                SendMessage(vkCode);
+                IntPtr t = GetForegroundWindow();
+                if (WindowHandle == t)
+                {
+                    SendMessage(vkCode);
+                    /* if (text=="S"||text=="A"||text=="D"&&enter== false)
+                         return (IntPtr)1;*/
+                }
             }
             return CallNextHookEx(_hookID, nCode, wParam, lParam);
         }
         void st(object o)
         {
-            Thread.Sleep(600);
+            Thread.Sleep(130);
             prevButton = (bool)o;
         }
-        void SendMessage(int vkCode)
+        int SendMessage(int vkCode)
         {
             if ((Keys)vkCode == Keys.Enter)
             {
@@ -120,6 +131,7 @@ namespace WC3Binder
                 {
                     case true:
                         {
+
                             enter = false;
                             break;
                         }
@@ -133,13 +145,10 @@ namespace WC3Binder
             int number = binder.getNumber((Keys)vkCode);
             if (number != -1 && flag == false && enter != true)
             {
-                IntPtr t = GetForegroundWindow();
                 flag = true;
-                if (WindowHandle == t)
+                if (binder.type[number] == 0)
                 {
-                    if (binder.type[number] == 0)
-                    {
-                        INPUT[] pInputs = new[] {new INPUT
+                    INPUT[] pInputs = new[] {new INPUT
                         {
                             type = InputType.KEYBOARD,
                             U = new InputUnion
@@ -154,13 +163,13 @@ namespace WC3Binder
                                 ki = { wScan = 0, wVk = binder.code[number], dwFlags = KEYEVENTF.KEYUP }
                             }
                         }};
-                        SendInput((uint)pInputs.Length, pInputs, INPUT.Size);
-                    }
-                    else
-                    {
-                        Point p = new Point();
-                        p = Cursor.Position;
-                        INPUT[] pInputs = new[] {new INPUT
+                    SendInput((uint)pInputs.Length, pInputs, INPUT.Size);
+                }
+                else
+                {
+                    Point p = new Point();
+                    p = Cursor.Position;
+                    INPUT[] pInputs = new[] {new INPUT
                         {
                             type = InputType.MOUSE,
                             U = new InputUnion
@@ -176,27 +185,42 @@ namespace WC3Binder
                                 mi = {  dwFlags = MOUSEEVENTF.LEFTUP }
                             }
                         }};
-                        Size resolution = Screen.PrimaryScreen.Bounds.Size;
-                        if (text != "Q" && text != "W" && text != "E" && text != "R")
-                        {
-                            SetCursorPos(Convert.ToInt32(binder.p[number].X * resolution.Width / 1920), Convert.ToInt32(binder.p[number].Y * resolution.Height / 1080));
-                            Thread.Sleep(10);
-                            SendInput((uint)pInputs.Length, pInputs, INPUT.Size);
-                            Thread.Sleep(10);
-                        }
-                        if (selfCast != true)
-                            SetCursorPos(p.X, p.Y);
-                        else
-                        {
-                            SetCursorPos(733 * resolution.Width / 1920, 885 * resolution.Height / 1080);
-                            Thread.Sleep(10);
-                            SendInput((uint)pInputs.Length, pInputs, INPUT.Size);
-                            Thread.Sleep(10);
-                            SetCursorPos(p.X, p.Y);
-                            selfCast = false;
-                        }
+                    Size resolution = Screen.PrimaryScreen.Bounds.Size;
+                    if (text != "Q" && text != "W" && text != "E" && text != "R")
+                    {
+                        SetCursorPos(Convert.ToInt32(binder.p[number].X * resolution.Width / 1920), Convert.ToInt32(binder.p[number].Y * resolution.Height / 1080));
+                        Thread.Sleep(18);
+                        SendInput((uint)pInputs.Length, pInputs, INPUT.Size);
+                        Thread.Sleep(18);
+                        BlockInput(true);
+                    }
+                    if (selfCast != true)
+                        SetCursorPos(p.X, p.Y);
+                    else
+                    {
+                        SetCursorPos(733 * resolution.Width / 1920, 885 * resolution.Height / 1080);
+                        Thread.Sleep(20);
+                        SendInput((uint)pInputs.Length, pInputs, INPUT.Size);
+                        Thread.Sleep(20);
+                        SetCursorPos(p.X, p.Y);
+                        selfCast = false;
+                        return 0;
                     }
                 }
+
+            }
+            return 1;
+        }
+        public static void BlockInput(TimeSpan span)
+        {
+            try
+            {
+                BlockInput(true);
+                Thread.Sleep(span);
+            }
+            finally
+            {
+                BlockInput(false);
             }
         }
         [StructLayout(LayoutKind.Sequential)]
@@ -1170,7 +1194,7 @@ namespace WC3Binder
                 binder.setNewKey(Int32.Parse(BN), Keys.None);
                 richTextBox1.Visible = false;
             }
-            else if (e.KeyCode >= Keys.A && e.KeyCode <= Keys.Z || e.KeyCode >= Keys.D1 && e.KeyCode <= Keys.D9 || e.KeyCode >= Keys.NumPad0 && e.KeyCode <= Keys.NumPad9 || e.KeyCode==Keys.XButton1 || e.KeyCode == Keys.XButton2)
+            else if (e.KeyCode >= Keys.A && e.KeyCode <= Keys.Z || e.KeyCode >= Keys.D1 && e.KeyCode <= Keys.D9 || e.KeyCode >= Keys.NumPad0 && e.KeyCode <= Keys.NumPad9 || e.KeyCode == Keys.XButton1 || e.KeyCode == Keys.XButton2)
             {
                 for (int i = 1; i < 19; i++)
                     if (e.KeyCode.ToString() == this.Controls["button" + i.ToString()].Text)
@@ -1362,5 +1386,49 @@ namespace WC3Binder
         {
             UnhookWindowsHookEx(_hookID);
         }
+
+        private void button24_Click(object sender, EventArgs e)
+        {
+            Process.Start(button24.Tag.ToString());
+            /*Process.Start(button24.Tag.ToString(), "-window"); 
+            Thread.Sleep(1000);
+            SetWindowPos(Process.GetProcessesByName("war3")[0].MainWindowHandle, this.Handle, 0,0,1920,1080, 0x0040);
+            SetWindowLongPtr(new HandleRef(this,Process.GetProcessesByName("war3")[0].MainWindowHandle), -16, (IntPtr)0x00000000L);
+            ShowWindow(Process.GetProcessesByName("war3")[0].MainWindowHandle,5);*/
+        }
+
+        private void button25_Click(object sender, EventArgs e)
+        {
+            Process.Start(button25.Tag.ToString());
+        }
+
+        private void button23_Click(object sender, EventArgs e)
+        {
+            if (openFileDialog1.ShowDialog() == DialogResult.Cancel)
+                return;
+            string filename = openFileDialog1.FileName;
+            binder.AddExeLinks(filename, 3);
+            button24.Tag = name[2];
+        }
+
+        private void button26_Click(object sender, EventArgs e)
+        {
+            if (openFileDialog1.ShowDialog() == DialogResult.Cancel)
+                return;
+            string filename = openFileDialog1.FileName;
+            binder.AddExeLinks(filename, 4);
+            button25.Tag = name[3];
+        }
+        [DllImport("user32.dll")]
+        private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter,
+        int x, int y, int width, int height, uint uFlags);
+        [DllImport("user32.dll")]
+        static extern IntPtr SetWindowLongPtr(
+  HandleRef hWnd,
+  int nIndex,
+  IntPtr dwNewLong
+);
+        [DllImport("user32.dll")]
+        static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
     }
 }
